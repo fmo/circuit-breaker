@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
+	order "github.com/fmo/circuit-breaker"
+	"github.com/fmo/circuit-breaker/middleware"
 	"github.com/sony/gobreaker"
+	"google.golang.org/grpc"
 	"log"
+	"time"
 )
 
 var cb *gobreaker.CircuitBreaker
@@ -20,4 +25,30 @@ func main() {
 			log.Printf("Circuit Breaker: %s, chnaged from %v, to %v", name, from, to)
 		},
 	})
+
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithInsecure())
+	opts = append(opts, grpc.WithUnaryInterceptor(middleware.CircuitBreakerClientInterceptor(cb)))
+	conn, err := grpc.Dial("localhost:8080", opts...)
+	if err != nil {
+		log.Fatalf("Failed to connect order service, Err: %v", err)
+	}
+	defer conn.Close()
+
+	orderClient := order.NewOrderServiceClient(conn)
+	for {
+		log.Println("Creating order...")
+		orderResponse, errCreate := orderClient.Create(context.Background(), &order.CreateOrderRequest{
+			UserId:    23,
+			ProductId: 1234,
+			Price:     3.2,
+		})
+
+		if errCreate != nil {
+			log.Printf("Failed to create order. Err: %v", errCreate)
+		} else {
+			log.Printf("Order %d is created successfully.", orderResponse.OrderId)
+		}
+		time.Sleep(1 * time.Second)
+	}
 }

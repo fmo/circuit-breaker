@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package="github.com/fmo/circuit-breaker";
+option go_package="github.com/fmo/circuit-breaker/order";
 
 message CreateOrderRequest {
   int32 user_id = 1;
